@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Attractor – Economic dynamics you can play with</title>
+<meta name="description" content="Solve dynamic economic models in the browser: phase portraits, saddle paths, bifurcations and shocks.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🌀%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="attractor.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18.5" fill="none" stroke="var(--line)"/><path d="M20 20 C 20 14, 28 13, 29 20 S 20 31, 13 25 S 10 9, 22 7.5 S 35 14, 34.5 22" fill="none" stroke="var(--navy)" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="20" r="3" fill="var(--forest)"/></svg>
+      <div><h1>Attractor</h1><p>Economic dynamics you can play with</p></div>
+    </div>
+    <div class="acts">
+      <button class="btn" id="b-copy" type="button">Edit a copy</button>
+      <button class="btn primary" id="b-new" type="button">Write a model</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <nav class="lib" id="lib" aria-label="Models"></nav>
+
+    <main>
+      <div class="mob"><label class="vh" for="mob-sel" hidden>Model</label><select id="mob-sel" aria-label="Model"></select></div>
+      <div class="head">
+        <p class="fam" id="m-fam"></p>
+        <h2 id="m-title"></h2>
+        <div class="eqs" id="m-eqs"></div>
+      </div>
+
+      <div class="stage" id="stage">
+        <canvas id="cv-st"></canvas>
+        <canvas id="cv-dyn"></canvas>
+        <div class="tools">
+          <button type="button" id="t-flow" aria-pressed="true">Flow</button>
+          <button type="button" id="t-clear">Clear paths</button>
+          <button type="button" id="t-view">Reset view</button>
+        </div>
+        <div class="hint" id="hint"><b>Click anywhere</b> to start an economy from that point. Drag to pan, scroll to zoom.</div>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+
+      <div class="tabs" role="tablist" aria-label="Analysis">
+        <button role="tab" id="tab-time" aria-selected="true" aria-controls="pn">Time paths</button>
+        <button role="tab" id="tab-bif" aria-selected="false" aria-controls="pn">Bifurcation</button>
+        <button role="tab" id="tab-eig" aria-selected="false" aria-controls="pn">Stability</button>
+        <div class="opts" id="opt-time"><label>Horizon <input type="number" id="horizon" min="1" step="any"></label></div>
+        <div class="opts" id="opt-bif" hidden>
+          <label>Parameter <select id="bif-p"></select></label>
+          <label>Variable <select id="bif-v"></select></label>
+        </div>
+      </div>
+      <div class="panel" id="pn" role="tabpanel"><canvas id="cv-pn"></canvas><div class="note" id="pn-note"></div></div>
+      <p class="caption" id="pn-cap"></p>
+    </main>
+
+    <aside class="side">
+      <section>
+        <h3>Parameters <button class="lnk" type="button" id="p-reset">Reset</button></h3>
+        <div id="params"></div>
+      </section>
+      <section>
+        <h3>Shock mode</h3>
+        <div class="shock">
+          <button class="sw-t" type="button" role="switch" aria-checked="false" id="shock" aria-labelledby="shock-lab"></button>
+          <p id="shock-lab"><b>Start from today's steady state.</b> Then move a parameter: the path shows how the economy adjusts, including jumps in forward-looking variables.</p>
+          <div class="row" id="shock-row" hidden><button class="btn small" type="button" id="shock-base">Make current state the baseline</button></div>
+        </div>
+      </section>
+      <section>
+        <h3>Steady states</h3>
+        <ul class="eqlist" id="eqlist"></ul>
+        <dl class="reports" id="reports"></dl>
+      </section>
+      <section class="about" id="about"></section>
+    </aside>
+  </div>
+
+  <footer>
+    <p>© 2026 Nicolò Badino &amp; Marc-Antoine Faure Colonna d'Istria</p>
+    <p>Models you write are kept in this browser only.</p>
+  </footer>
+</div>
+
+<dialog id="ed" aria-labelledby="ed-h">
+  <div class="ed">
+    <div class="l">
+      <h2 id="ed-h">Write a model</h2>
+      <p class="sub">One or two equations, in continuous or discrete time. Parameters become sliders.</p>
+      <textarea id="ed-src" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Model source"></textarea>
+      <ul class="errs" id="ed-errs"></ul>
+      <p class="ok" id="ed-ok" hidden></p>
+      <div class="bar">
+        <button class="btn primary" type="button" id="ed-run">Run model</button>
+        <button class="btn" type="button" id="ed-save">Save to your models</button>
+        <span class="sp"></span>
+        <button class="btn" type="button" id="ed-close">Cancel</button>
+      </div>
+    </div>
+    <div class="r">
+      <h3>How to write a model</h3>
+      <pre>title: Solow with a floor
+k' = s*k^alpha - (n + delta)*k
+param s = 0.25 [0, 1] Saving rate
+param alpha = 0.33 [0.05, 0.95]
+param n = 0.01 [0, 0.1]
+param delta = 0.05 [0, 0.2]
+window k [0, 25]</pre>
+      <h4>Lines you can use</h4>
+      <dl>
+        <dt><code>x' = …</code></dt><dd>Continuous time, dx/dt</dd>
+        <dt><code>x(t+1) = …</code></dt><dd>Discrete time, next period's value</dd>
+        <dt><code>param a = 1 [0, 2] Label</code></dt><dd>A slider, its range and its name</dd>
+        <dt><code>let y = …</code></dt><dd>A helper used in the equations</dd>
+        <dt><code>window x [0, 10]</code></dt><dd>Visible range of a variable</dd>
+        <dt><code>jump c</code></dt><dd>A variable free to jump after a shock (saddle-path models)</dd>
+        <dt><code>init x = 1, y = 2</code></dt><dd>First path drawn on load</dd>
+        <dt><code>horizon 100</code></dt><dd>Length of simulated paths</dd>
+        <dt><code>curve Label: …</code></dt><dd>Extra curve on one-variable diagrams</dd>
+        <dt><code>report Label: …</code></dt><dd>Value computed at the steady state</dd>
+        <dt><code>label x: text</code></dt><dd>Axis label</dd>
+      </dl>
+      <h4>Expressions</h4>
+      <p><code>+ - * / ^</code>, parentheses, <code>exp log sqrt abs min max tanh atan sin cos</code>, and the constants <code>pi</code> and <code>e</code>. Greek names such as <code>alpha</code> or <code>rho</code> display as symbols; <code>s_k</code> becomes s with subscript k, <code>istar</code> becomes i*.</p>
+    </div>
+  </div>
+</dialog>
+<script src="engine.js"></script>
+<script src="models.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
